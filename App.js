@@ -8,6 +8,7 @@ app.use(bodyy.json());
 //app.use(app.router);
 
 let balance = 0
+let lastID = 1;
 
 const port = process.env.PORT||5000
 app.get("/",(req,res) => {
@@ -36,6 +37,8 @@ app.get("/transactions",(req,res) => {
 
 app.post("/transactions",(req,res) => {
     //console.log(req.body)
+    lastID++
+    req.body.id = lastID
     transaction.transactions.push(req.body)
     if (req.body.type == "credit")
     {
@@ -45,6 +48,22 @@ app.post("/transactions",(req,res) => {
     {
         balance-= parseInt(req.body.amount)
     }
+    res.send("200")
+})
+
+app.delete("/",(req,res) => {
+    //console.log(req.body)
+    transaction.transactions = transaction.transactions.filter((data) => {
+        if (data.id == req.body.id)
+        {
+            //update fund balance
+            if (data.type == "credit")
+            balance -= parseInt(data.amount)
+            else
+            balance += parseInt(data.amount)
+        }
+           return data.id != req.body.id
+    })
     res.send("200")
 })
 
