@@ -1,70 +1,117 @@
+const fundbalance = require('./fundschemea')
+const transactionModel = require("./transactionschema")
+
 const express = require('express')
-const app = express()
-const cors = require('cors');
+const app = new express()
+const cors = require('cors')
+const mongoose = require('mongoose')
 const bodyy = require('body-parser')
 
-app.use(cors({origin: "*"}))
-app.use(bodyy.json());
-//app.use(app.router);
 
-let balance = 0
-let lastID = 1;
+app.use(cors({
+    origin: "*"
+}))
+app.use(bodyy.json())
 
-const port = process.env.PORT||5000
-app.get("/",(req,res) => {
-    res.send("Working... got response...")
-})
 app.get("/fundbalance",(req,res) => {
-    res.json({balance: balance})
+   // console.log("Request to get fundbalance")
+    fundbalance.findOne()
+    //new fundbalance({balance: 456}).save()
+    .then((result) => {
+       // console.log(result)
+        res.send(result)
+    })
+    .catch((e) => console.log(e))
 })
-
-
-const transaction = {transactions: [
-    {
-      "id": 1,
-      "type": "credit",
-      "subject": "Fund created",
-      "amount": 0,
-      "datetime": "Sun May 22 2022 06:17:00 GMT+0530 (India Standard Time)"
-    },]
-}
-
 
 app.get("/transactions",(req,res) => {
-    res.json(transaction);
-})
+    transactionModel.find().sort({datetime: -1})
 
-
-app.post("/transactions",(req,res) => {
-    //console.log(req.body)
-    lastID++
-    req.body.id = lastID
-    transaction.transactions.push(req.body)
-    if (req.body.type == "credit")
-    {
-        balance+= parseInt(req.body.amount)
-    }
-    else  if (req.body.type == "debit")
-    {
-        balance-= parseInt(req.body.amount)
-    }
-    res.send("200")
-})
-
-app.delete("/",(req,res) => {
-    //console.log(req.body)
-    transaction.transactions = transaction.transactions.filter((data) => {
-        if (data.id == req.body.id)
-        {
-            //update fund balance
-            if (data.type == "credit")
-            balance -= parseInt(data.amount)
-            else
-            balance += parseInt(data.amount)
-        }
-           return data.id != req.body.id
+    .then((result) => {
+        //console.log(result)
+        res.send({transactions: result})
     })
-    res.send("200")
+    .catch((e) => console.log(e))
 })
 
-app.listen(port,() => console.log("Listeneing..."))
+//save the transaction
+app.post("/transactions",(req,res) => {
+   // console.log(req.body)
+    new transactionModel({
+        type: req.body.type,
+        subject: req.body.subject,
+        amount: parseFloat(req.body.amount),
+        datetime: new Date(),
+    }).save()
+    .then((dt) => {
+          //get current balance  and calculate new balance
+          let p = null
+        p = fundbalance.findOne()
+        .then((dt) => {
+            let tempBalance = (dt.balance);
+            if (req.body.type == "credit")
+            {
+               tempBalance += parseFloat((req.body.amount))
+               
+            }
+            else
+            {
+                tempBalance -= parseFloat((req.body.amount))
+            }
+            fundbalance.updateOne({balance: dt.balance},{balance: tempBalance})
+            .then((s) => 
+            {
+                console.log(s)
+                console.log("Saved succesfully")
+                res.send("200")
+            })
+            .catch((e) => console.log(e))
+        })
+       
+
+        })
+    .catch((e) => console.log(e))
+})
+
+//delete transaction record from db and update the fund balance
+app.delete("/",(req,res) => {
+    //fetch the transaction with body.id to get the amount
+   // console.log("delete id" +req.body.id)
+    transactionModel.findById(req.body.id)
+    .then((dt) => {
+        console.log(dt)
+        fundbalance.findOne()
+        .then((balancee) => {
+            let tempBalance =  balancee.balance
+            if (dt.type == "credit")
+            {
+                tempBalance -=  dt.amount;
+            }
+            else{
+                tempBalance += dt.amount;   
+            }
+           // console.log("After delete balance "+tempBalance)
+            fundbalance.updateOne({balance: balancee.balance},{balance: tempBalance})
+            .then((ee) => {
+                //updated fund balanc above and now lets remove the transaction from record
+                //console.log("fund balance updated")
+                transactionModel.deleteOne({_id: req.body.id})
+                .then((tt) => {
+                   // console.log("Record removed")
+                    res.send("200")
+                })
+            })
+        })
+    })
+})
+
+
+
+const con = mongoose.connect('mongodb+srv://sibasish:sibasish99@cluster0.tmykr.mongodb.net/transaction-react-app?retryWrites=true&w=majority')
+.then((t) => {
+    //console.log('connected to db')
+    app.listen(5000,() => console.log("Listeneing at port..."))
+})
+
+//get fund balance
+
