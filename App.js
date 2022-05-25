@@ -110,7 +110,7 @@ app.delete("/",(req,res) => {
 const con = mongoose.connect('mongodb+srv://sibasish:sibasish99@cluster0.tmykr.mongodb.net/transaction-react-app?retryWrites=true&w=majority')
 .then((t) => {
     //console.log('connected to db')
-    app.listen(5000,() => console.log("Listeneing at port..."))
+    app.listen(process.env.PORT||5000,() => console.log("Listeneing at port..."))
 })
 
 //get fund balance
